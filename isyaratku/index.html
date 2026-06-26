@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="id" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISYARATKU - AI Penerjemah SIBI untuk Guru Inklusif</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        heading: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#1950A6', 
+                        secondary: '#0D9488',
+                        accent: '#F59E0B', 
+                        darkbg: '#0F172A',
+                        darkcard: '#1E293B'
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1629159505/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        .bg-dots {
+            background-image: radial-gradient(#CBD5E1 2px, transparent 2px);
+            background-size: 20px 20px;
+        }
+        .nav-item-active {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-weight: 700;
+            border-left: 4px solid white;
+        }
+        .nav-item-inactive {
+            color: #BFDBFE;
+            border-left: 4px solid transparent;
+        }
+        .nav-item-inactive:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-darkbg dark:text-gray-200 transition-colors duration-300 relative overflow-x-hidden">
+
+    <div class="fixed top-0 right-0 w-96 h-96 bg-dots opacity-50 pointer-events-none z-0"></div>
+    <div class="fixed bottom-0 right-0 w-full h-64 bg-gradient-to-t from-blue-100/50 to-transparent pointer-events-none z-0"></div>
+
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-50">
+        <i id="toastIcon" class="fa-solid fa-check-circle text-green-400"></i>
+        <span id="toastMsg" class="font-medium">Pesan</span>
+    </div>
+
+    <!-- ==================== AUTH SYSTEM ==================== -->
+    <div id="authView" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-blue-400 p-4 hidden z-50 relative">
+        <div class="bg-white dark:bg-darkcard rounded-3xl shadow-2xl w-full max-w-5xl flex overflow-hidden flex-col md:flex-row relative z-10">
+            <div class="bg-primary text-white p-10 md:w-5/12 flex flex-col justify-center relative overflow-hidden hidden md:flex">
+                <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                <div class="relative z-10">
+                    <img src="asset/img/icon-isyaratku.png" alt="Logo ISYARATKU" class="h-20 w-auto object-contain mb-4 drop-shadow-md" onerror="this.src='https://placehold.co/400x150/1950A6/FFF?text=ISYARATKU'">
+                    <p class="text-blue-200 mb-8 font-medium">Aplikasi Penerjemah & Latihan SIBI</p>
+                    <div class="space-y-5 text-sm">
+                        <div class="flex items-center"><div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3"><i class="fa-solid fa-camera text-blue-100"></i></div> Deteksi AI Real-time</div>
+                        <div class="flex items-center"><div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3"><i class="fa-solid fa-book text-blue-100"></i></div> Kamus Grafis SIBI</div>
+                        <div class="flex items-center"><div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3"><i class="fa-solid fa-gamepad text-blue-100"></i></div> Latihan Guru Interaktif</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loginFormContainer" class="p-8 md:p-12 md:w-7/12 w-full transition-all duration-300">
+                <h2 class="text-3xl font-extrabold mb-2 text-gray-800 dark:text-white">Masuk / Login</h2>
+                <p class="text-gray-500 mb-8">Masuk ke akun Anda untuk melanjutkan pembelajaran.</p>
+                
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="mb-5">
+                        <label class="block text-sm font-bold mb-2 text-gray-700">Email atau Username</label>
+                        <input type="text" id="loginId" class="w-full px-5 py-3.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none transition-all" required placeholder="Masukkan email / username">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold mb-2 text-gray-700">Password</label>
+                        <input type="password" id="loginPassword" class="w-full px-5 py-3.5 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none transition-all" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="w-full bg-primary hover:bg-blue-800 text-white font-bold py-4 rounded-xl shadow-lg transition-all text-lg mb-6">
+                        Masuk Beranda
+                    </button>
+                    <p class="text-center text-sm text-gray-600 dark:text-gray-400">
+                        Tidak punya akun? <button type="button" onclick="toggleAuth('register')" class="font-bold text-primary dark:text-blue-400 hover:underline">Registrasi Akun</button>
+                    </p>
+                </form>
+            </div>
+
+            <div id="registerFormContainer" class="p-8 md:p-12 md:w-7/12 w-full hidden overflow-y-auto h-[600px] transition-all duration-300">
+                <h2 class="text-3xl font-extrabold mb-2 text-gray-800 dark:text-white">Registrasi Akun</h2>
+                <p class="text-gray-500 mb-8">Lengkapi data untuk mendaftar di ISYARATKU.</p>
+                
+                <form id="registerForm" onsubmit="handleRegister(event)">
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-1 text-gray-700">Nama Lengkap *</label>
+                        <input type="text" id="regName" required class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 outline-none focus:border-primary">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-1 text-gray-700">Email *</label>
+                        <input type="email" id="regEmail" required class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 outline-none focus:border-primary">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-1 text-gray-700">Username *</label>
+                        <input type="text" id="regUsername" required minlength="4" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 outline-none focus:border-primary">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div>
+                            <label class="block text-sm font-bold mb-1 text-gray-700">Password *</label>
+                            <input type="password" id="regPass" required minlength="6" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold mb-1 text-gray-700">Konfirmasi *</label>
+                            <input type="password" id="regPassConf" required minlength="6" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 outline-none focus:border-primary">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-primary hover:bg-blue-800 text-white font-bold py-4 rounded-xl shadow-lg transition-all text-lg mb-6">
+                        Daftar Akun
+                    </button>
+                    <p class="text-center text-sm text-gray-600 dark:text-gray-400">
+                        Sudah punya akun? <button type="button" onclick="toggleAuth('login')" class="font-bold text-primary hover:underline">Masuk di sini</button>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN APP ==================== -->
+    <div id="mainApp" class="hidden min-h-screen flex flex-col md:flex-row relative z-10">
+        
+        <aside class="w-full md:w-64 bg-primary text-white border-r border-blue-900 md:h-screen sticky top-0 flex flex-col shadow-2xl z-30">
+            <div class="p-6 border-b border-blue-800/50 flex justify-center items-center mt-2">
+                <img src="asset/img/icon-isyaratku.png" alt="ISYARATKU" class="h-12 w-auto object-contain drop-shadow-md" onerror="this.src='https://placehold.co/200x60/1950A6/FFF?text=ISYARATKU'">
+                <button class="md:hidden text-blue-200 hover:text-white absolute right-6" onclick="document.getElementById('mobileMenu').classList.toggle('hidden')">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+            </div>
+            
+            <div id="mobileMenu" class="hidden md:flex flex-col flex-1 justify-between overflow-y-auto">
+                <nav class="p-4 space-y-2 mt-4">
+                    <a href="#" onclick="navigate('dashboard')" class="nav-link block px-5 py-3.5 rounded-r-full text-sm transition-colors nav-item-active" data-target="dashboard">
+                        <i class="fa-solid fa-house w-6 text-center"></i> Beranda
+                    </a>
+                    <a href="#" onclick="navigate('translator')" class="nav-link block px-5 py-3.5 rounded-r-full text-sm transition-colors nav-item-inactive" data-target="translator">
+                        <i class="fa-solid fa-camera w-6 text-center"></i> Terjemahkan Isyarat
+                    </a>
+                    <a href="#" onclick="navigate('dictionary')" class="nav-link block px-5 py-3.5 rounded-r-full text-sm transition-colors nav-item-inactive" data-target="dictionary">
+                        <i class="fa-solid fa-book-open w-6 text-center"></i> Kamus SIBI
+                    </a>
+                    <a href="#" onclick="navigate('training')" class="nav-link block px-5 py-3.5 rounded-r-full text-sm transition-colors nav-item-inactive" data-target="training">
+                        <i class="fa-solid fa-person-chalkboard w-6 text-center"></i> Latihan Guru
+                    </a>
+                    <a href="#" onclick="navigate('history')" class="nav-link block px-5 py-3.5 rounded-r-full text-sm transition-colors nav-item-inactive" data-target="history">
+                        <i class="fa-solid fa-clock-rotate-left w-6 text-center"></i> Riwayat
+                    </a>
+                    <div class="pt-6 pb-2">
+                        <p class="px-5 text-xs font-bold text-blue-300 uppercase tracking-widest">Lainnya</p>
+                    </div>
+                    <a href="#" onclick="navigate('informasi')" class="nav-link block px-5 py-3.5 rounded-r-full text-sm transition-colors nav-item-inactive" data-target="informasi">
+                        <i class="fa-solid fa-circle-info w-6 text-center"></i> Tentang Aplikasi
+                    </a>
+                    <a href="#" onclick="navigate('pengaturan')" class="nav-link block px-5 py-3.5 rounded-r-full text-sm transition-colors nav-item-inactive" data-target="pengaturan">
+                        <i class="fa-solid fa-user-gear w-6 text-center"></i> Profil & Pengaturan
+                    </a>
+                </nav>
+                <div class="relative p-4 mt-auto hidden md:block">
+                    <div class="bg-blue-600 text-white text-xs p-3 rounded-xl rounded-bl-none shadow-lg mb-2 relative z-10 border border-blue-500">
+                        <p class="font-medium">"Setiap isyarat adalah jembatan untuk memahami"</p>
+                    </div>
+                    <img src="asset/img/guru-sidebar.png" alt="Guru" class="w-32 mx-auto drop-shadow-xl z-0" onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=Teacher&style=transparent'">
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden bg-transparent">
+            <header class="h-20 bg-transparent flex items-center justify-between px-8 z-10 hidden md:flex">
+                <h2 class="text-xl font-bold text-gray-800 dark:text-white" id="pageTitle">Beranda / Menu Utama</h2>
+                <div class="flex items-center space-x-3 bg-white dark:bg-slate-800 px-4 py-2 rounded-full shadow-sm border border-gray-100 dark:border-slate-700">
+                    <span class="font-bold text-sm text-gray-700 dark:text-gray-200" id="headerName">User</span>
+                    <img src="" id="headerAvatar" class="w-8 h-8 rounded-full border border-gray-200 object-cover">
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto px-4 pb-8 md:px-10" id="contentArea">
+                
+                <!-- 1. BERANDA VIEW -->
+                <div id="view-dashboard" class="page-view animate-fade-in block h-full flex flex-col pt-4">
+                    <div class="mb-10 relative z-10">
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-gray-800 dark:text-white flex items-center gap-3 tracking-tight">
+                            Halo, <span id="dashName">Bapak/Ibu Guru</span>! <span class="text-4xl animate-bounce origin-bottom-right">👋</span>
+                        </h2>
+                        <p class="text-gray-600 dark:text-gray-400 mt-2 text-lg pb-4">Selamat mengajar dan menginspirasi hari ini.</p>
+                        <div class="w-32 h-1 bg-primary rounded-full"></div>
+                    </div>
+
+                    <div class="flex-1 relative z-10">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            
+                            <div onclick="navigate('informasi')" class="bg-[#F0F7FF] dark:bg-slate-800 border-2 border-[#BDE0FE] dark:border-blue-900 rounded-[2rem] p-6 flex items-center gap-4 relative overflow-hidden card-hover cursor-pointer h-44 shadow-sm group">
+                                <div class="w-1/3 flex justify-center">
+                                    <img src="asset/img/icon-tentang.png" alt="Tentang" class="w-20 object-contain group-hover:scale-110 transition-transform" onerror="this.src='https://cdn-icons-png.flaticon.com/512/5956/5956592.png'">
+                                </div>
+                                <div class="w-2/3 flex flex-col justify-center h-full pt-2">
+                                    <h3 class="font-extrabold text-xl text-[#1E3A8A] dark:text-blue-400 leading-tight mb-2">Tentang<br>Aplikasi</h3>
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">Informasi tentang aplikasi ISYARATKU, panduan penggunaan dan dukungan</p>
+                                </div>
+                                <div class="absolute bottom-5 right-5 w-8 h-8 bg-[#3B82F6] text-white rounded-full flex items-center justify-center shadow-md group-hover:translate-x-1 transition-transform"><i class="fa-solid fa-arrow-right text-sm"></i></div>
+                            </div>
+
+                            <div onclick="navigate('dictionary')" class="bg-[#F0FDF4] dark:bg-slate-800 border-2 border-[#A7F3D0] dark:border-emerald-900 rounded-[2rem] p-6 flex items-center gap-4 relative overflow-hidden card-hover cursor-pointer h-44 shadow-sm group">
+                                <div class="w-1/3 flex justify-center">
+                                    <img src="asset/img/icon-kamus.png" alt="Kamus" class="w-20 object-contain group-hover:scale-110 transition-transform" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2232/2232688.png'">
+                                </div>
+                                <div class="w-2/3 flex flex-col justify-center h-full pt-2">
+                                    <h3 class="font-extrabold text-xl text-[#047857] dark:text-emerald-400 leading-tight mb-2">Kamus SIBI</h3>
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">Jelajahi kamus kosakata SIBI lengkap dengan isyarat dan arti</p>
+                                </div>
+                                <div class="absolute bottom-5 right-5 w-8 h-8 bg-[#10B981] text-white rounded-full flex items-center justify-center shadow-md group-hover:translate-x-1 transition-transform"><i class="fa-solid fa-arrow-right text-sm"></i></div>
+                            </div>
+
+                            <div onclick="navigate('translator')" class="bg-[#EFF6FF] dark:bg-slate-800 border-2 border-[#93C5FD] dark:border-blue-800 rounded-[2rem] p-6 flex items-center gap-4 relative overflow-hidden card-hover cursor-pointer h-44 shadow-sm group">
+                                <div class="w-1/3 flex justify-center">
+                                    <img src="asset/img/icon-terjemah.png" alt="Terjemahkan" class="w-20 object-contain group-hover:scale-110 transition-transform" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2822/2822501.png'">
+                                </div>
+                                <div class="w-2/3 flex flex-col justify-center h-full pt-2">
+                                    <h3 class="font-extrabold text-xl text-[#1D4ED8] dark:text-blue-500 leading-tight mb-1">Terjemahkan<br>Isyarat</h3>
+                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 leading-snug">Terjemahkan Isyarat SIBI menjadi bahasa Indonesia. <br><span class="text-red-500 font-medium italic mt-1 block">(Masih Tahap Perbaikan)</span></p>
+                                </div>
+                                <div class="absolute bottom-5 right-5 w-8 h-8 bg-[#2563EB] text-white rounded-full flex items-center justify-center shadow-md group-hover:translate-x-1 transition-transform"><i class="fa-solid fa-arrow-right text-sm"></i></div>
+                            </div>
+
+                        </div>
+
+                        <div class="flex flex-col md:flex-row justify-center gap-6 lg:w-4/5 mx-auto">
+                            
+                            <div onclick="navigate('training')" class="flex-1 bg-[#FFFBEB] dark:bg-slate-800 border-2 border-[#FDE68A] dark:border-amber-900 rounded-[2rem] p-6 flex items-center gap-4 relative overflow-hidden card-hover cursor-pointer h-44 shadow-sm group">
+                                <div class="w-1/3 flex justify-center">
+                                    <img src="asset/img/icon-latihan.png" alt="Latihan" class="w-24 object-contain group-hover:scale-110 transition-transform" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1945/1945132.png'">
+                                </div>
+                                <div class="w-2/3 flex flex-col justify-center h-full pt-2">
+                                    <h3 class="font-extrabold text-xl text-[#B45309] dark:text-amber-500 leading-tight mb-2">Latihan Guru</h3>
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">Dapatkan latihan untuk bekal mengajar sebagai pendamping SLB</p>
+                                </div>
+                                <div class="absolute bottom-5 right-5 w-8 h-8 bg-[#F59E0B] text-white rounded-full flex items-center justify-center shadow-md group-hover:translate-x-1 transition-transform"><i class="fa-solid fa-arrow-right text-sm"></i></div>
+                            </div>
+
+                            <div onclick="navigate('history')" class="flex-1 bg-[#FAF5FF] dark:bg-slate-800 border-2 border-[#E9D5FF] dark:border-purple-900 rounded-[2rem] p-6 flex items-center gap-4 relative overflow-hidden card-hover cursor-pointer h-44 shadow-sm group">
+                                <div class="w-1/3 flex justify-center">
+                                    <img src="asset/img/icon-riwayat.png" alt="Riwayat" class="w-20 object-contain group-hover:scale-110 transition-transform" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3221/3221589.png'">
+                                </div>
+                                <div class="w-2/3 flex flex-col justify-center h-full pt-2">
+                                    <h3 class="font-extrabold text-xl text-[#7E22CE] dark:text-purple-400 leading-tight mb-2">Riwayat</h3>
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">Lihat Riwayat belajar Isyarat yang pernah di pelajari</p>
+                                </div>
+                                <div class="absolute bottom-5 right-5 w-8 h-8 bg-[#8B5CF6] text-white rounded-full flex items-center justify-center shadow-md group-hover:translate-x-1 transition-transform"><i class="fa-solid fa-arrow-right text-sm"></i></div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. TRANSLATOR VIEW -->
+                <div id="view-translator" class="page-view hidden h-full relative z-10 pt-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-2xl text-gray-800 dark:text-white"><i class="fa-solid fa-camera text-primary mr-2"></i> Kamera AI (Real-time)</h3>
+                        <div class="space-x-2">
+                            <button id="btnStartCamera" onclick="startMediaPipe()" class="bg-primary text-white px-5 py-2.5 rounded-xl font-bold hover:bg-blue-800 text-sm shadow-md transition">Nyalakan Kamera</button>
+                            <button id="btnStopCamera" onclick="stopMediaPipe()" class="hidden bg-red-500 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-red-600 text-sm shadow-md transition">Matikan Kamera</button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 text-sm p-4 rounded-r-xl mb-6 flex items-start shadow-sm">
+                        <i class="fa-solid fa-triangle-exclamation mt-1 mr-3 text-lg text-yellow-600"></i>
+                        <p><strong>Pemberitahuan Sistem:</strong> Model AI Deteksi MediaPipe <strong>masih dalam tahap perbaikan berkelanjutan</strong>. Toleransi kalkulasi sudut jari bisa sedikit sensitif terhadap pencahayaan ruangan dan background di belakang tangan Anda.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
+                        <div class="lg:col-span-2 bg-black rounded-3xl overflow-hidden relative border-4 border-gray-800 shadow-xl flex flex-col h-[50vh] lg:h-full" id="cameraContainer">
+                            <div id="cameraLoading" class="hidden absolute inset-0 z-20 bg-gray-900/90 flex flex-col items-center justify-center text-white">
+                                <div class="loader mb-4"></div><p class="font-bold tracking-wide">Memuat AI Model...</p>
+                            </div>
+                            <video id="input_video" class="hidden" autoplay playsinline></video>
+                            <canvas id="output_canvas" class="w-full h-full object-cover transform scale-x-[-1]"></canvas>
+                            <div class="absolute inset-0 pointer-events-none flex items-center justify-center opacity-30">
+                                <div class="w-72 h-96 border-4 border-dashed border-white rounded-3xl"></div>
+                            </div>
+                            <div class="absolute top-5 right-5 bg-black/60 text-white px-4 py-1.5 rounded-lg text-xs font-bold border border-white/20 tracking-wider">MediaPipe Active</div>
+                        </div>
+
+                        <div class="lg:col-span-1 flex flex-col gap-6">
+                            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-slate-700 p-8 flex flex-col items-center justify-center text-center flex-1 relative overflow-hidden">
+                                <div class="absolute top-0 left-0 w-full h-2 bg-primary"></div>
+                                <p class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-widest">Deteksi Saat Ini</p>
+                                <div class="w-36 h-36 rounded-[2rem] bg-blue-50 dark:bg-slate-800 flex items-center justify-center border-4 border-primary shadow-inner mb-6 relative">
+                                    <span class="text-8xl font-black text-primary dark:text-blue-400" id="currentLetter">--</span>
+                                </div>
+                                <span class="bg-gray-100 dark:bg-slate-700 px-5 py-2 rounded-full text-sm font-bold text-gray-600 dark:text-gray-300" id="confidenceTxt">Akurasi: 0%</span>
+                            </div>
+
+                            <!-- BOX AKSI TRANSLATOR (FIXED WORK!) -->
+                            <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 flex flex-col">
+                                <p class="text-xs text-gray-500 mb-3 font-bold uppercase tracking-widest">Hasil Teks / Frasa</p>
+                                <div class="bg-gray-50 dark:bg-slate-900 h-20 rounded-2xl border border-gray-200 dark:border-slate-600 flex items-center px-5 overflow-x-auto text-3xl font-black text-primary dark:text-blue-400 tracking-widest shadow-inner mb-4" id="constructedWord"></div>
+                                
+                                <div class="grid grid-cols-2 gap-3 mb-3">
+                                    <button onclick="appendSpace()" class="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-white py-3 rounded-xl font-bold text-sm hover:bg-gray-200 transition shadow-sm">Spasi</button>
+                                    <button onclick="deleteLastLetter()" class="bg-red-50 text-red-600 border border-red-100 rounded-xl hover:bg-red-100 font-bold text-sm transition shadow-sm"><i class="fa-solid fa-delete-left mr-1"></i> Hapus</button>
+                                </div>
+                                
+                                <div class="space-y-3 mt-auto">
+                                    <button onclick="speakText(document.getElementById('constructedWord').textContent)" class="w-full bg-blue-50 border border-blue-100 dark:bg-blue-900/30 text-primary dark:text-blue-300 py-3 rounded-xl font-bold text-sm hover:bg-blue-100 transition shadow-sm"><i class="fa-solid fa-volume-up mr-2"></i> Bacakan Teks (TTS)</button>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <button onclick="copyText()" class="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-white py-3 rounded-xl font-bold text-sm hover:bg-gray-200 transition shadow-sm"><i class="fa-solid fa-copy mr-1"></i> Salin</button>
+                                        <button onclick="saveWordToUserHistory()" class="bg-primary text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-800 transition shadow-md"><i class="fa-solid fa-save mr-1"></i> Simpan</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. KAMUS SIBI VIEW -->
+                <div id="view-dictionary" class="page-view hidden relative z-10 pt-4">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+                        <div>
+                            <h2 class="text-3xl font-extrabold text-gray-800 dark:text-white">Kamus SIBI Digital</h2>
+                            <p class="text-gray-500 mt-2 text-lg">Panduan visual gerakan abjad Sistem Isyarat Bahasa Indonesia.</p>
+                        </div>
+                        <div class="relative w-full md:w-72">
+                            <input type="text" id="searchKamus" placeholder="Cari Huruf A-Z..." class="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 outline-none shadow-sm focus:border-primary focus:ring-2 focus:ring-blue-100 transition" onkeyup="filterKamus()">
+                            <i class="fa-solid fa-search absolute left-5 top-4 text-gray-400 text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6" id="kamusGrid"></div>
+                </div>
+
+                <!-- Detail Modal Kamus -->
+                <div id="kamusDetailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div class="bg-white dark:bg-darkcard rounded-[2rem] shadow-2xl p-8 w-full max-w-sm text-center transform transition-all">
+                        <div class="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-slate-700 pb-4">
+                            <h3 class="font-extrabold text-xl text-gray-800 dark:text-white">Detail Isyarat</h3>
+                            <button onclick="document.getElementById('kamusDetailModal').classList.add('hidden')" class="text-gray-400 hover:text-red-500 bg-gray-100 dark:bg-slate-800 w-10 h-10 rounded-full transition"><i class="fa-solid fa-times text-lg"></i></button>
+                        </div>
+                        <div class="w-56 h-56 mx-auto bg-gray-50 dark:bg-slate-900 rounded-3xl mb-6 p-4 border-2 border-gray-100 dark:border-slate-700 shadow-inner flex items-center justify-center" id="detailGraphic"></div>
+                        <h2 class="text-6xl font-black text-primary dark:text-blue-400 mb-4" id="detailLetter">A</h2>
+                        <div class="text-left bg-blue-50 dark:bg-slate-800/80 p-5 rounded-2xl text-sm border border-blue-100 dark:border-slate-700">
+                            <p class="text-gray-700 dark:text-gray-300"><strong>Deskripsi Gerakan:</strong> <span id="detailDesc" class="leading-relaxed block mt-2"></span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. LATIHAN GURU VIEW -->
+                <div id="view-training" class="page-view hidden relative z-10 pt-4">
+                    <h2 class="text-3xl font-extrabold mb-8 text-gray-800 dark:text-white">Latihan Guru Interaktif</h2>
+                    
+                    <div id="quizSetup" class="bg-white dark:bg-darkcard p-8 md:p-12 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 text-center max-w-4xl mx-auto">
+                        <div class="w-24 h-24 bg-amber-100 text-amber-500 rounded-[2rem] flex items-center justify-center text-5xl mx-auto mb-8 shadow-inner"><i class="fa-solid fa-gamepad"></i></div>
+                        <h3 class="text-3xl font-black mb-3 text-gray-800 dark:text-white">Uji Penguasaan Kosakata SIBI Anda</h3>
+                        <p class="text-gray-500 mb-10 max-w-xl mx-auto text-lg">Sistem akan menampilkan grafis tangan SIBI secara acak. Pilih jawaban yang paling tepat berdasarkan tingkatan level.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+                            <button onclick="startQuiz('Pemula', 3, 999)" class="p-5 rounded-2xl border-2 border-blue-200 hover:border-blue-500 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 transition flex flex-col items-center group shadow-sm">
+                                <i class="fa-solid fa-seedling text-3xl mb-3 text-blue-400 group-hover:scale-125 transition"></i>
+                                <span class="font-extrabold text-lg">Pemula</span><span class="text-xs mt-1 opacity-70">3 Soal (Santai)</span>
+                            </button>
+                            <button onclick="startQuiz('Mudah', 5, 20)" class="p-5 rounded-2xl border-2 border-green-200 hover:border-green-500 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-slate-800 transition flex flex-col items-center group shadow-sm">
+                                <i class="fa-solid fa-leaf text-3xl mb-3 text-green-400 group-hover:scale-125 transition"></i>
+                                <span class="font-extrabold text-lg">Mudah</span><span class="text-xs mt-1 opacity-70">5 Soal (20 Detik)</span>
+                            </button>
+                            <button onclick="startQuiz('Sedang', 10, 15)" class="p-5 rounded-2xl border-2 border-yellow-300 hover:border-yellow-500 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-slate-800 transition flex flex-col items-center group shadow-sm">
+                                <i class="fa-solid fa-star text-3xl mb-3 text-yellow-400 group-hover:scale-125 transition"></i>
+                                <span class="font-extrabold text-lg">Sedang</span><span class="text-xs mt-1 opacity-70">10 Soal (15 Detik)</span>
+                            </button>
+                            <button onclick="startQuiz('Sulit', 15, 10)" class="p-5 rounded-2xl border-2 border-orange-200 hover:border-orange-500 text-orange-700 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-slate-800 transition flex flex-col items-center group shadow-sm">
+                                <i class="fa-solid fa-fire text-3xl mb-3 text-orange-400 group-hover:scale-125 transition"></i>
+                                <span class="font-extrabold text-lg">Sulit</span><span class="text-xs mt-1 opacity-70">15 Soal (10 Detik)</span>
+                            </button>
+                            <button onclick="startQuiz('Expert', 20, 5)" class="p-5 rounded-2xl border-2 border-red-200 hover:border-red-500 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-slate-800 transition flex flex-col items-center group shadow-sm lg:col-span-1 md:col-span-2">
+                                <i class="fa-solid fa-bolt text-3xl mb-3 text-red-400 group-hover:scale-125 transition"></i>
+                                <span class="font-extrabold text-lg">Expert</span><span class="text-xs mt-1 opacity-70">20 Soal (5 Detik)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="quizArea" class="hidden bg-white dark:bg-darkcard p-8 md:p-12 rounded-[2rem] shadow-xl border border-gray-200 dark:border-slate-700 max-w-3xl mx-auto text-center relative overflow-hidden">
+                        <div class="flex justify-between items-center mb-8 text-sm font-bold bg-gray-50 dark:bg-slate-800 p-4 rounded-xl border border-gray-100 dark:border-slate-700">
+                            <span id="quizProgress" class="text-primary dark:text-blue-400 text-base">Soal 1 / 5</span>
+                            <span class="text-gray-800 dark:text-white text-base">Level: <span id="quizLevelBadge" class="text-accent">Mudah</span></span>
+                            <span id="quizTimer" class="text-red-600 bg-red-100 px-4 py-1.5 rounded-full text-base"><i class="fa-solid fa-stopwatch"></i> 10s</span>
+                        </div>
+                        
+                        <h4 class="text-3xl font-black mb-8 text-gray-800 dark:text-white">Tebak Isyarat Huruf Apa Ini?</h4>
+                        <div class="w-64 h-64 mx-auto bg-gray-50 dark:bg-slate-900 rounded-[2rem] mb-10 p-5 border-4 border-gray-100 dark:border-slate-700 shadow-inner flex items-center justify-center" id="quizGraphicContainer"></div>
+                        <div class="grid grid-cols-2 gap-5" id="quizOptions"></div>
+                    </div>
+
+                    <div id="quizResult" class="hidden bg-white dark:bg-darkcard p-10 md:p-14 rounded-[2rem] shadow-2xl border border-gray-200 dark:border-slate-700 text-center max-w-2xl mx-auto">
+                        <h3 class="text-4xl font-black mb-3 text-gray-800 dark:text-white">Penilaian Selesai</h3>
+                        <p class="text-gray-500 mb-10 text-lg">Berikut adalah hasil evaluasi latihan SIBI Anda.</p>
+                        <div class="w-48 h-48 mx-auto rounded-full bg-blue-50 dark:bg-slate-800 flex flex-col items-center justify-center border-[10px] border-primary dark:border-blue-500 shadow-inner mb-8 relative">
+                            <span class="text-sm font-bold text-gray-400 absolute top-8">SKOR AKHIR</span>
+                            <span class="text-7xl font-black text-primary dark:text-blue-400 mt-4" id="quizScoreDisplay">100</span>
+                        </div>
+                        <p class="text-2xl font-bold text-gray-700 dark:text-gray-300 mb-10" id="quizFeedback">Luar biasa! Anda menguasai semua isyarat.</p>
+                        <div class="flex justify-center gap-4">
+                            <button onclick="document.getElementById('quizResult').classList.add('hidden'); document.getElementById('quizSetup').classList.remove('hidden');" class="bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-white px-8 py-4 rounded-xl font-bold hover:bg-gray-200 transition text-lg">Ulangi Latihan</button>
+                            <button onclick="navigate('history')" class="bg-primary text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-800 shadow-lg transition text-lg">Lihat Riwayat</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. RIWAYAT VIEW -->
+                <div id="view-history" class="page-view hidden relative z-10 pt-4">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <h2 class="text-3xl font-extrabold text-gray-800 dark:text-white">Daftar Riwayat Aktivitas</h2>
+                    </div>
+                    <div class="bg-white dark:bg-darkcard rounded-3xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-gray-50 dark:bg-slate-800/80 text-sm text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-slate-700 uppercase tracking-widest">
+                                    <th class="p-5 font-bold">Waktu</th>
+                                    <th class="p-5 font-bold">Aktivitas / Keterangan</th>
+                                    <th class="p-5 font-bold text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody" class="text-base divide-y divide-gray-100 dark:divide-slate-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 6. INFORMASI VIEW -->
+                <div id="view-informasi" class="page-view hidden relative z-10 pt-4">
+                    <h2 class="text-3xl font-extrabold mb-8 text-gray-800 dark:text-white">Tentang Aplikasi</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="bg-white dark:bg-darkcard p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                            <h3 class="font-extrabold text-xl mb-4 border-b border-gray-100 dark:border-slate-700 pb-4 text-primary"><i class="fa-solid fa-circle-info mr-2"></i> Pengenalan ISYARATKU</h3>
+                            <p class="text-gray-600 dark:text-gray-400 leading-relaxed mb-6 text-lg">ISYARATKU adalah platform AI yang dirancang untuk membantu tenaga pendidik berkomunikasi dengan siswa tunarungu menggunakan SIBI secara efisien dan interaktif.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. PENGATURAN VIEW (SUDAH DI-REVISI ADD INPUT EDIT PROFIL WORK!) -->
+                <div id="view-pengaturan" class="page-view hidden relative z-10 pt-4">
+                    <div class="flex justify-between items-center mb-8">
+                        <h2 class="text-3xl font-extrabold text-gray-800 dark:text-white">Profil & Pengaturan</h2>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        
+                        <!-- Form Edit Data Diri Profil -->
+                        <div class="lg:col-span-2 space-y-8">
+                            <div class="bg-white dark:bg-darkcard p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                                <h3 class="font-extrabold text-xl mb-6 border-b border-gray-100 dark:border-slate-700 pb-4 text-primary"><i class="fa-solid fa-user-pen mr-2"></i> Edit Profil Anda</h3>
+                                
+                                <form id="editProfileForm" onsubmit="handleUpdateProfile(event)" class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">Nama Lengkap</label>
+                                        <input type="text" id="editName" required class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none transition-all">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-300">Alamat Email</label>
+                                        <input type="email" id="editEmail" required class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 focus:ring-2 focus:ring-primary outline-none transition-all">
+                                    </div>
+                                    <button type="submit" class="bg-primary hover:bg-blue-800 text-white font-bold px-6 py-3 rounded-xl shadow-md transition-all">Simpan Perubahan</button>
+                                </form>
+                            </div>
+
+                            <div class="bg-white dark:bg-darkcard p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                                <h3 class="font-extrabold text-xl mb-6 border-b border-gray-100 dark:border-slate-700 pb-4">Preferensi Aplikasi</h3>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-center p-4 hover:bg-gray-50 dark:hover:bg-slate-800 rounded-xl transition border border-transparent hover:border-gray-100 dark:hover:border-slate-700">
+                                        <div><p class="font-bold text-gray-800 dark:text-gray-200">Mode Tampilan (Tema)</p><p class="text-sm text-gray-500 mt-1">Ganti antara mode Gelap / Terang.</p></div>
+                                        <button onclick="toggleDarkMode()" class="px-5 py-2 border border-gray-300 dark:border-slate-600 rounded-xl font-bold bg-white dark:bg-slate-700 hover:bg-gray-100 shadow-sm"><i class="fa-solid fa-moon mr-2"></i> Ganti Tema</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white dark:bg-darkcard p-8 rounded-3xl border border-gray-200 dark:border-slate-700 shadow-sm h-fit">
+                            <div class="w-20 h-20 bg-red-100 text-red-500 rounded-2xl flex items-center justify-center text-4xl mb-6 shadow-inner"><i class="fa-solid fa-power-off"></i></div>
+                            <h3 class="font-extrabold text-xl mb-2 text-gray-800 dark:text-white">Keluar Sesi</h3>
+                            <p class="text-gray-500 mb-8 leading-relaxed">Sesi Anda akan diakhiri di perangkat ini.</p>
+                            <button onclick="logout()" class="w-full bg-red-500 text-white hover:bg-red-600 py-4 rounded-xl font-bold shadow-lg transition text-lg">Keluar Akun</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
